@@ -100,11 +100,19 @@ else
 fi
 
 # ---------- 1. base packages -------------------------------------------------
-step "Installing base packages"
+step "Checking base packages"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get install -y curl ca-certificates tar sudo
-ok "Base packages installed"
+MISSING=()
+for p in curl ca-certificates tar sudo; do
+  dpkg -s "$p" >/dev/null 2>&1 || MISSING+=("$p")
+done
+if (( ${#MISSING[@]} )); then
+  apt-get update -y
+  apt-get install -y "${MISSING[@]}"
+  ok "Installed: ${MISSING[*]}"
+else
+  ok "Already installed: curl ca-certificates tar sudo"
+fi
 
 # ---------- 2. runner user ---------------------------------------------------
 step "Creating user '${RUNNER_USER}'"
@@ -208,9 +216,7 @@ if [[ -f .service ]]; then
 else
   ./svc.sh install "$RUNNER_USER"
 fi
-./svc.sh start
-sleep 2
-SYSTEMD_PAGER='' ./svc.sh status || true
+SYSTEMD_PAGER='' ./svc.sh start   # also prints the service status
 
 echo
 ok "Done! The runner should now show as 'Idle' under Settings → Actions → Runners."
